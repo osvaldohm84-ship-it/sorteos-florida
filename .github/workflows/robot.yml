@@ -1,0 +1,34 @@
+name: Robot Sorteos Florida
+
+on:
+  schedule:
+    # 18:05 UTC (2:05 PM ET) para el sorteo del Mediodía
+    # 02:05 UTC (10:05 PM ET) para el sorteo de la Noche
+    - cron: '5 18,2 * * *'
+  workflow_dispatch: # Botón para ejecutarlo a mano
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Instalar librerías
+        run: pip install requests beautifulsoup4
+
+      - name: Ejecutar Scraper
+        run: python scraper.py
+
+      - name: Guardar cambios (Commit)
+        run: |
+          git config --global user.name 'Robot Florida'
+          git config --global user.email 'robot@github.com'
+          git add resultados.json
+          git commit -m "Actualizacion automatica de sorteos" || exit 0
+          git push
