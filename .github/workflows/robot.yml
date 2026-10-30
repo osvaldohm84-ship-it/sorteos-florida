@@ -4,7 +4,7 @@ on:
   schedule:
     # 18:05 UTC (2:05 PM ET) para el sorteo del Mediodía
     # 02:05 UTC (10:05 PM ET) para el sorteo de la Noche
-    - cron: '5 18,2 * * *'
+    - cron: '50 17,2 * * *'
   workflow_dispatch: # Botón para ejecutarlo a mano
 
 jobs:
