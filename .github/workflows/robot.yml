@@ -2,10 +2,8 @@ name: Robot Sorteos Florida
 
 on:
   schedule:
-    # 18:05 UTC (2:05 PM ET) para el sorteo del Mediodía
-    # 02:05 UTC (10:05 PM ET) para el sorteo de la Noche
     - cron: '50 17,2 * * *'
-  workflow_dispatch: # Botón para ejecutarlo a mano
+  workflow_dispatch:
 
 jobs:
   actualizar:
@@ -30,5 +28,5 @@ jobs:
           git config --global user.name 'Robot Florida'
           git config --global user.email 'robot@github.com'
           git add resultados.json
-          git commit -m "Actualizacion automatica de sorteos" || exit 0
+          git commit -m "Actualizacion automatica" || exit 0
           git push
