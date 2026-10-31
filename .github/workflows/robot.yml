@@ -17,12 +17,24 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Limpiar archivos viejos
+        run: |
+          rm -f p3_output.txt p4_output.txt
+
       - name: Ejecutar Scraper (fl-lotto)
         run: |
           npx fl-lotto -g p3 > p3_output.txt
           npx fl-lotto -g p4 > p4_output.txt
           cat p3_output.txt
           cat p4_output.txt
+
+      - name: Convertir a JSON
+        run: python scraper.py
 
       - name: Guardar cambios (Commit)
         run: |
