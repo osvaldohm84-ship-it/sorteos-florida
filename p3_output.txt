@@ -6,16 +6,12 @@ Fetching latest Florida Lottery results...
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
  PICK 3 (MIDDAY) 
- Draw Date: 10/30/2026
- Numbers: [  5 -  8 -  1 ] (FB: 7)
-
- PICK 3 (MIDDAY) 
  Draw Date: 10/31/2026
  Numbers: [  6 -  6 -  6 ] (FB: 8)
 
  PICK 3 (EVENING) 
- Draw Date: 10/30/2026
- Numbers: [  9 -  1 -  9 ] (FB: 8)
+ Draw Date: 10/31/2026
+ Numbers: [  4 -  3 -  0 ] (FB: 6)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
