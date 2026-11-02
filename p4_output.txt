@@ -9,6 +9,10 @@ Fetching latest Florida Lottery results...
  Draw Date: 11/01/2026
  Numbers: [  0 -  9 -  2 -  8 ] (FB: 7)
 
+ PICK 4 (MIDDAY) 
+ Draw Date: 11/02/2026
+ Numbers: [  5 -  6 -  1 -  4 ] (FB: 7)
+
  PICK 4 (EVENING) 
  Draw Date: 11/01/2026
  Numbers: [  7 -  4 -  0 -  1 ] (FB: 1)
