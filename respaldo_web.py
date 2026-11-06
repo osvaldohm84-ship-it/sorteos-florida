@@ -7,7 +7,6 @@ import re
 
 ARCHIVO_JSON = "resultados.json"
 
-# URLs de dominicanaloterias.com
 URLS = {
     "P3_DIA": "https://dominicanaloterias.com/loteria/loteria-de-florida/pick-3-dia",
     "P3_NOCHE": "https://dominicanaloterias.com/loteria/loteria-de-florida/pick-3-noche",
@@ -27,7 +26,6 @@ def extraer_web(url, juego, turno):
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Buscamos la tabla histórica
         filas = soup.find_all('tr')
         
         if not filas:
@@ -39,36 +37,23 @@ def extraer_web(url, juego, turno):
             if len(celdas) < 2:
                 continue
             
-            # La primera celda tiene la fecha
             texto_fecha = celdas[0].get_text(strip=True)
             
-            # Buscar los números (pueden estar en <li> o en <span>)
-            # En la web de dominicanaloterias, los números están en una lista <ul><li>...</li></ul>
+            # Extraer los números (vienen en etiquetas <li>)
             lista_numeros = fila.find_all('li')
-            
             numeros = []
             if lista_numeros:
                 for li in lista_numeros:
-                    # Limpiamos el texto, quitando guiones, comas, etc.
                     texto_limpio = re.sub(r'[^0-9]', '', li.get_text(strip=True))
                     if texto_limpio:
                         numeros.append(texto_limpio)
-            else:
-                # Si no hay <li>, intentamos buscar en celdas (por si acaso)
-                for celda in celdas[1:]:
-                    texto_limpio = re.sub(r'[^0-9]', '', celda.get_text(strip=True))
-                    if texto_limpio:
-                        numeros.append(texto_limpio)
             
-            # Si encontramos al menos 3 números, procesamos la fila
+            # Si hay al menos 3 números (Pick 3), procesamos
             if len(numeros) >= 3:
                 try:
-                    fecha_str = None
-                    # Formato típico: "04 de nov 2026" o "04 de noviembre 2026"
-                    # Limpiamos el texto para que sea "04 nov 2026"
+                    # Limpieza de la fecha
                     fecha_limpia = texto_fecha.lower().replace(" de ", " ").replace(".", "")
-                    
-                    # Intentamos parsear la fecha
+                    fecha_str = None
                     for fmt in ("%d %b %Y", "%d %B %Y", "%d/%m/%Y", "%d-%m-%Y"):
                         try:
                             fecha_obj = datetime.strptime(fecha_limpia, fmt)
@@ -79,24 +64,29 @@ def extraer_web(url, juego, turno):
                     
                     if not fecha_str:
                         continue
-                    
+
+                    # Limpiamos la centena (si es "01" lo pasamos a "1", pero si es "00" se queda "0")
+                    cent = numeros[0]
+                    if len(cent) > 1 and cent.startswith("0"):
+                        cent = str(int(cent)) # "01" -> "1", "00" -> "0"
+
                     if juego == "P3":
                         resultados.append({
                             "fecha": fecha_str, 
                             "turno": turno, 
-                            "cent": numeros[0], 
+                            "cent": cent, 
                             "fijo": numeros[1].zfill(2), 
                             "c1": numeros[2].zfill(2), 
-                            "c2": numeros[3].zfill(2) if len(numeros) > 3 else "00"
+                            "c2": "00" # En Pick 3 el C2 real no existe, se deja 00
                         })
                     elif juego == "P4" and len(numeros) >= 4:
                         resultados.append({
                             "fecha": fecha_str, 
                             "turno": turno, 
-                            "cent": numeros[0], 
+                            "cent": cent, 
                             "fijo": numeros[1].zfill(2), 
                             "c1": numeros[2].zfill(2), 
-                            "c2": numeros[3].zfill(2)
+                            "c2": numeros[3].zfill(2) # En Pick 4 el C2 es el cuarto número
                         })
                 except Exception as e:
                     continue
