@@ -18,7 +18,7 @@ def procesar_lineas(lineas, juego):
     for linea in lineas:
         linea = linea.strip()
         
-        # Detectar la fecha (viene como MM/DD/YYYY)
+        # Detectar la fecha (viene como MM/DD/YYYY de la API)
         match_fecha = re.search(r'Draw Date:\s*(\d{2}/\d{2}/\d{4})', linea)
         if match_fecha:
             fecha_raw = match_fecha.group(1)
@@ -33,30 +33,31 @@ def procesar_lineas(lineas, juego):
             
         # Detectar los números
         match_numeros = re.search(r'Numbers:\s*\[\s*(\d+)\s*-\s*(\d+)\s*-\s*(\d+)(?:\s*-\s*(\d+))?\s*\]', linea)
+        
         if match_numeros and fecha_actual and turno_actual:
             if juego == "P3":
                 n1, n2, n3 = match_numeros.group(1), match_numeros.group(2), match_numeros.group(3)
-                # LÓGICA CORREGIDA: Centena, Fijo y C1 reales. C2 es 00 porque no existe en P3.
+                # CORREGIDO: Fijo y C1 completos con 2 dígitos, C2 es 00.
                 sorteos.append({
                     "fecha": fecha_actual, 
                     "turno": turno_actual, 
                     "cent": n1, 
-                    "fijo": n2, 
-                    "c1": n3, 
+                    "fijo": n2.zfill(2), 
+                    "c1": n3.zfill(2), 
                     "c2": "00"
                 })
             elif juego == "P4":
                 n1, n2, n3 = match_numeros.group(1), match_numeros.group(2), match_numeros.group(3)
                 n4 = match_numeros.group(4)
                 if n4:
-                    # LÓGICA CORREGIDA: Todos los 4 números reales.
+                    # CORREGIDO: Todos los números con 2 dígitos.
                     sorteos.append({
                         "fecha": fecha_actual, 
                         "turno": turno_actual, 
                         "cent": n1, 
-                        "fijo": n2, 
-                        "c1": n3, 
-                        "c2": n4
+                        "fijo": n2.zfill(2), 
+                        "c1": n3.zfill(2), 
+                        "c2": n4.zfill(2)
                     })
     return sorteos
 
