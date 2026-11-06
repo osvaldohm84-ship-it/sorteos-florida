@@ -4,11 +4,15 @@ import pandas as pd
 from datetime import datetime
 
 ARCHIVO_JSON = "resultados.json"
-URL_P3 = "https://www.lotteryusa.com/florida/pick-3-evening/"
-URL_P4 = "https://www.lotteryusa.com/florida/pick-4-evening/"
 
-def extraer_web(url, juego):
-    print(f"Buscando en respaldo: {url}")
+# URLs para Tarde (Midday) y Noche (Evening)
+URL_P3_TARDE = "https://www.lotteryusa.com/florida/pick-3-midday/"
+URL_P3_NOCHE = "https://www.lotteryusa.com/florida/pick-3-evening/"
+URL_P4_TARDE = "https://www.lotteryusa.com/florida/pick-4-midday/"
+URL_P4_NOCHE = "https://www.lotteryusa.com/florida/pick-4-evening/"
+
+def extraer_web(url, juego, turno):
+    print(f"Buscando en: {url} (Turno: {turno})")
     resultados = []
     try:
         tablas = pd.read_html(url)
@@ -27,9 +31,25 @@ def extraer_web(url, juego):
                         
                         if len(nums) >= 3:
                             if juego == "P3":
-                                resultados.append({"fecha": fecha_str, "turno": "N", "cent": nums[0], "fijo": nums[1], "c1": nums[2], "c2": "00"})
+                                # Centena, Fijo (2 dígitos), C1 (2 dígitos), C2 (00)
+                                resultados.append({
+                                    "fecha": fecha_str, 
+                                    "turno": turno, 
+                                    "cent": nums[0], 
+                                    "fijo": nums[1].zfill(2), 
+                                    "c1": nums[2].zfill(2), 
+                                    "c2": "00"
+                                })
                             elif juego == "P4" and len(nums) >= 4:
-                                resultados.append({"fecha": fecha_str, "turno": "N", "cent": nums[0], "fijo": nums[1], "c1": nums[2], "c2": nums[3]})
+                                # Los 4 números reales
+                                resultados.append({
+                                    "fecha": fecha_str, 
+                                    "turno": turno, 
+                                    "cent": nums[0], 
+                                    "fijo": nums[1].zfill(2), 
+                                    "c1": nums[2].zfill(2), 
+                                    "c2": nums[3].zfill(2)
+                                })
                     except:
                         continue
         return resultados
@@ -39,33 +59,40 @@ def extraer_web(url, juego):
 
 def main():
     if not os.path.exists(ARCHIVO_JSON):
-        return
+        data = {"sorteos": []}
+    else:
+        with open(ARCHIVO_JSON, 'r', encoding='utf-8') as f:
+            try:
+                data = json.load(f)
+            except:
+                data = {"sorteos": []}
 
-    with open(ARCHIVO_JSON, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-
-    nuevos_web = extraer_web(URL_P3, "P3") + extraer_web(URL_P4, "P4")
+    # Recopilamos todos los datos de las 4 URLs
+    nuevos_web = []
+    nuevos_web.extend(extraer_web(URL_P3_TARDE, "P3", "T"))
+    nuevos_web.extend(extraer_web(URL_P3_NOCHE, "P3", "N"))
+    nuevos_web.extend(extraer_web(URL_P4_TARDE, "P4", "T"))
+    nuevos_web.extend(extraer_web(URL_P4_NOCHE, "P4", "N"))
     
     actualizados = 0
+    agregados = 0
+    
     for n in nuevos_web:
         existe = False
-        for existente in data["sorteos"]:
+        for i, existente in enumerate(data["sorteos"]):
             if existente["fecha"] == n["fecha"] and existente["turno"] == n["turno"]:
-                # Si existe pero tiene 00, lo actualizamos con los datos de la web
-                if existente["c1"] == "00" or existente["c2"] == "00":
-                    existente["cent"] = n["cent"]
-                    existente["fijo"] = n["fijo"]
-                    existente["c1"] = n["c1"]
-                    existente["c2"] = n["c2"]
-                    actualizados += 1
+                # SIEMPRE SOBRESCRIBIMOS CON LOS DATOS DE LA WEB
+                data["sorteos"][i] = n
+                actualizados += 1
                 existe = True
                 break
         if not existe:
             data["sorteos"].append(n)
+            agregados += 1
             print(f"Agregado desde web: {n['fecha']} - {n['turno']}")
-            
-    if actualizados > 0:
-        print(f"Se actualizaron {actualizados} sorteos que tenían 00.")
+
+    if actualizados > 0 or agregados > 0:
+        print(f"Se agregaron {agregados} sorteos y se actualizaron {actualizados} con los datos de la web.")
 
     with open(ARCHIVO_JSON, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
