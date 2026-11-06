@@ -1,65 +1,92 @@
 import json
 import os
-import pandas as pd
-from datetime import datetime
 import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
 
 ARCHIVO_JSON = "resultados.json"
 
-# URLs para Tarde (Midday) y Noche (Evening)
-URL_P3_TARDE = "https://www.lotteryusa.com/florida/pick-3-midday/"
-URL_P3_NOCHE = "https://www.lotteryusa.com/florida/pick-3-evening/"
-URL_P4_TARDE = "https://www.lotteryusa.com/florida/pick-4-midday/"
-URL_P4_NOCHE = "https://www.lotteryusa.com/florida/pick-4-evening/"
+# URLs de dominicanaloterias.com (según búsqueda, tienen los números)
+URLS = {
+    "P3_DIA": "https://dominicanaloterias.com/loteria/loteria-de-florida/pick-3-dia",
+    "P3_NOCHE": "https://dominicanaloterias.com/loteria/loteria-de-florida/pick-3-noche",
+    "P4_DIA": "https://dominicanaloterias.com/loteria/loteria-de-florida/pick-4-dia",
+    "P4_NOCHE": "https://dominicanaloterias.com/loteria/loteria-de-florida/pick-4-noche"
+}
 
 def extraer_web(url, juego, turno):
     print(f"Buscando en: {url} (Turno: {turno})")
     resultados = []
-    # MÁSCARA DE NAVEGADOR REAL PARA EVITAR BLOQUEOS
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
     try:
-        # Usamos requests con headers, y le pasamos el texto a pandas
         response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
         
-        tablas = pd.read_html(response.text)
-        for df in tablas:
-            df.columns = [str(c).strip() for c in df.columns]
-            if 'Date' in df.columns and ('Numbers' in df.columns or 'Winning Numbers' in df.columns):
-                df = df.dropna(subset=['Date'])
-                for _, row in df.iterrows():
-                    try:
-                        fecha_texto = str(row['Date']).strip()
-                        fecha_obj = datetime.strptime(fecha_texto, "%b %d, %Y")
-                        fecha_str = fecha_obj.strftime("%d-%m-%Y")
-                        
-                        col_nums = 'Numbers' if 'Numbers' in df.columns else 'Winning Numbers'
-                        nums = [n for n in str(row[col_nums]).split() if n.isdigit()]
-                        
-                        if len(nums) >= 3:
-                            if juego == "P3":
-                                resultados.append({
-                                    "fecha": fecha_str, 
-                                    "turno": turno, 
-                                    "cent": nums[0], 
-                                    "fijo": nums[1].zfill(2), 
-                                    "c1": nums[2].zfill(2), 
-                                    "c2": "00"
-                                })
-                            elif juego == "P4" and len(nums) >= 4:
-                                resultados.append({
-                                    "fecha": fecha_str, 
-                                    "turno": turno, 
-                                    "cent": nums[0], 
-                                    "fijo": nums[1].zfill(2), 
-                                    "c1": nums[2].zfill(2), 
-                                    "c2": nums[3].zfill(2)
-                                })
-                    except:
+        # ESTRATEGIA GENÉRICA: Buscamos todas las filas de tabla
+        # Si no funciona, tendrás que decirme la clase exacta
+        filas = soup.find_all('tr')
+        
+        if not filas:
+            print(f"ADVERTENCIA: No se encontraron filas <tr> en {url}")
+            return []
+        
+        for fila in filas:
+            celdas = fila.find_all('td')
+            if len(celdas) < 2:
+                continue
+            
+            # Intentamos extraer la fecha de la primera celda
+            texto_fecha = celdas[0].get_text(strip=True)
+            
+            # Intentamos extraer los números de las siguientes celdas
+            numeros = []
+            for celda in celdas[1:]:
+                texto = celda.get_text(strip=True)
+                # Buscamos dígitos o grupos de dígitos
+                if texto.isdigit():
+                    numeros.append(texto)
+            
+            if len(numeros) >= 3:
+                try:
+                    # Intentar parsear la fecha (puede venir como "23 de oct 2026" o "23/10/2026")
+                    # Esto es un intento; si falla, se salta la fila
+                    fecha_str = None
+                    for fmt in ("%d de %b %Y", "%d/%m/%Y", "%d-%m-%Y"):
+                        try:
+                            fecha_obj = datetime.strptime(texto_fecha, fmt)
+                            fecha_str = fecha_obj.strftime("%d-%m-%Y")
+                            break
+                        except:
+                            continue
+                    
+                    if not fecha_str:
                         continue
+                    
+                    if juego == "P3":
+                        resultados.append({
+                            "fecha": fecha_str, 
+                            "turno": turno, 
+                            "cent": numeros[0], 
+                            "fijo": numeros[1].zfill(2), 
+                            "c1": numeros[2].zfill(2), 
+                            "c2": "00"
+                        })
+                    elif juego == "P4" and len(numeros) >= 4:
+                        resultados.append({
+                            "fecha": fecha_str, 
+                            "turno": turno, 
+                            "cent": numeros[0], 
+                            "fijo": numeros[1].zfill(2), 
+                            "c1": numeros[2].zfill(2), 
+                            "c2": numeros[3].zfill(2)
+                        })
+                except:
+                    continue
+        
         print(f"Se encontraron {len(resultados)} sorteos en {url}")
         return resultados
     except Exception as e:
@@ -77,16 +104,13 @@ def main():
                 data = {"sorteos": []}
 
     nuevos_web = []
-    nuevos_web.extend(extraer_web(URL_P3_TARDE, "P3", "T"))
-    nuevos_web.extend(extraer_web(URL_P3_NOCHE, "P3", "N"))
-    nuevos_web.extend(extraer_web(URL_P4_TARDE, "P4", "T"))
-    nuevos_web.extend(extraer_web(URL_P4_NOCHE, "P4", "N"))
+    nuevos_web.extend(extraer_web(URLS["P3_DIA"], "P3", "T"))
+    nuevos_web.extend(extraer_web(URLS["P3_NOCHE"], "P3", "N"))
+    nuevos_web.extend(extraer_web(URLS["P4_DIA"], "P4", "T"))
+    nuevos_web.extend(extraer_web(URLS["P4_NOCHE"], "P4", "N"))
     
     actualizados = 0
     agregados = 0
-    
-    if len(nuevos_web) == 0:
-        print("ADVERTENCIA: No se pudo extraer ningún sorteo de las webs. Puede ser un bloqueo temporal.")
     
     for n in nuevos_web:
         existe = False
@@ -102,13 +126,13 @@ def main():
             print(f"Agregado desde web: {n['fecha']} - {n['turno']}")
 
     if actualizados > 0 or agregados > 0:
-        print(f"Se agregaron {agregados} sorteos y se actualizaron {actualizados} con los datos de la web.")
+        print(f"Se agregaron {agregados} sorteos y se actualizaron {actualizados}.")
     else:
         print("No se agregaron ni actualizaron sorteos.")
 
     with open(ARCHIVO_JSON, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
-    print("Proceso de respaldo terminado.")
+    print("Proceso terminado.")
 
 if __name__ == "__main__":
     main()
