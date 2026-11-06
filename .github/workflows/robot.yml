@@ -2,7 +2,14 @@ name: Robot Sorteos Florida
 
 on:
   schedule:
-    - cron: '50 17,2 * * *'
+    # DESPERTAR 1: Oficial Tarde (18:50 UTC = 2:50 PM Cuba / 1:50 PM Florida)
+    - cron: '50 18 * * *'
+    # DESPERTAR 2: Respaldo Tarde (19:10 UTC = 3:10 PM Cuba / 2:10 PM Florida)
+    - cron: '10 19 * * *'
+    # DESPERTAR 3: Oficial Noche (03:05 UTC = 11:05 PM Cuba / 10:05 PM Florida)
+    - cron: '5 3 * * *'
+    # DESPERTAR 4: Respaldo Noche (03:25 UTC = 11:25 PM Cuba / 10:25 PM Florida)
+    - cron: '25 3 * * *'
   workflow_dispatch:
 
 jobs:
@@ -22,24 +29,34 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Instalar dependencias de Python
+        run: pip install requests beautifulsoup4 pandas lxml
+
       - name: Limpiar archivos viejos
         run: |
           rm -f p3_output.txt p4_output.txt
 
-      - name: Ejecutar Scraper (fl-lotto)
+      # PASO 1: INTENTO OFICIAL (SIEMPRE SE EJECUTA)
+      - name: Ejecutar Scraper Oficial (fl-lotto)
         run: |
           npx fl-lotto -g p3 > p3_output.txt
           npx fl-lotto -g p4 > p4_output.txt
           cat p3_output.txt
           cat p4_output.txt
 
-      - name: Convertir a JSON
+      - name: Convertir Oficial a JSON
         run: python scraper.py
+
+      # PASO 2: INTENTO RESPALDO (SOLO SI ES LA HORA DE RESPALDO)
+      # Esto se ejecuta a las 19:10 UTC y 03:25 UTC, o si lo corres manualmente
+      - name: Buscar en Web de Respaldo
+        if: github.event.schedule == '10 19 * * *' || github.event.schedule == '25 3 * * *' || github.event_name == 'workflow_dispatch'
+        run: python respaldo_web.py
 
       - name: Guardar cambios (Commit)
         run: |
           git config --global user.name 'Robot Florida'
           git config --global user.email 'robot@github.com'
           git add .
-          git commit -m "Actualizacion automatica" || exit 0
+          git commit -m "Actualizacion automatica y respaldo" || exit 0
           git push
