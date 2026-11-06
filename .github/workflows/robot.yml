@@ -19,11 +19,6 @@ jobs:
       - name: Clonar repositorio
         uses: actions/checkout@v3
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
       - name: Configurar Python
         uses: actions/setup-python@v4
         with:
@@ -32,25 +27,8 @@ jobs:
       - name: Instalar dependencias de Python
         run: pip install requests beautifulsoup4 pandas lxml
 
-      - name: Limpiar archivos viejos
-        run: |
-          rm -f p3_output.txt p4_output.txt
-
-      # PASO 1: INTENTO OFICIAL (SIEMPRE SE EJECUTA)
-      - name: Ejecutar Scraper Oficial (fl-lotto)
-        run: |
-          npx fl-lotto -g p3 > p3_output.txt
-          npx fl-lotto -g p4 > p4_output.txt
-          cat p3_output.txt
-          cat p4_output.txt
-
-      - name: Convertir Oficial a JSON
-        run: python scraper.py
-
-      # PASO 2: INTENTO RESPALDO (SOLO SI ES LA HORA DE RESPALDO)
-      # Esto se ejecuta a las 19:10 UTC y 03:25 UTC, o si lo corres manualmente
-      - name: Buscar en Web de Respaldo
-        if: github.event.schedule == '10 19 * * *' || github.event.schedule == '25 3 * * *' || github.event_name == 'workflow_dispatch'
+      # EJECUTAMOS DIRECTAMENTE EL RESPALDO WEB (SIN FL-LOTTO)
+      - name: Buscar en Web (LotteryUSA)
         run: python respaldo_web.py
 
       - name: Guardar cambios (Commit)
@@ -58,5 +36,5 @@ jobs:
           git config --global user.name 'Robot Florida'
           git config --global user.email 'robot@github.com'
           git add .
-          git commit -m "Actualizacion automatica y respaldo" || exit 0
+          git commit -m "Actualizacion automatica via Web" || exit 0
           git push
