@@ -6,16 +6,12 @@ Fetching latest Florida Lottery results...
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
  PICK 4 (MIDDAY) 
- Draw Date: 11/04/2026
- Numbers: [  0 -  6 -  3 -  7 ] (FB: 2)
-
- PICK 4 (MIDDAY) 
  Draw Date: 11/05/2026
  Numbers: [  8 -  3 -  0 -  9 ] (FB: 7)
 
  PICK 4 (EVENING) 
- Draw Date: 11/04/2026
- Numbers: [  7 -  9 -  0 -  8 ] (FB: 9)
+ Draw Date: 11/05/2026
+ Numbers: [  4 -  1 -  4 -  1 ] (FB: 3)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
