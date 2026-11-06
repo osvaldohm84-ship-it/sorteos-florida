@@ -44,11 +44,12 @@ def extraer_web(url, juego, turno):
             numeros = []
             if lista_numeros:
                 for li in lista_numeros:
+                    # Extrae solo dígitos
                     texto_limpio = re.sub(r'[^0-9]', '', li.get_text(strip=True))
                     if texto_limpio:
                         numeros.append(texto_limpio)
             
-            # Si hay al menos 3 números (Pick 3), procesamos
+            # Procesamos si hay al menos 3 números (Pick 3)
             if len(numeros) >= 3:
                 try:
                     # Limpieza de la fecha
@@ -65,28 +66,36 @@ def extraer_web(url, juego, turno):
                     if not fecha_str:
                         continue
 
-                    # Limpiamos la centena (si es "01" lo pasamos a "1", pero si es "00" se queda "0")
-                    cent = numeros[0]
-                    if len(cent) > 1 and cent.startswith("0"):
-                        cent = str(int(cent)) # "01" -> "1", "00" -> "0"
+                    # Función auxiliar para limpiar ceros
+                    def limpiar_num(n):
+                        if n == "00": return "0"
+                        return str(int(n))
 
                     if juego == "P3":
+                        # En Pick 3 oficial hay 3 números. 
+                        # Si la web trae 4, el último suele ser el Fireball (lo ignoramos)
+                        nums_reales = numeros[:3] 
+                        
                         resultados.append({
                             "fecha": fecha_str, 
                             "turno": turno, 
-                            "cent": cent, 
-                            "fijo": numeros[1].zfill(2), 
-                            "c1": numeros[2].zfill(2), 
-                            "c2": "00" # En Pick 3 el C2 real no existe, se deja 00
+                            "cent": limpiar_num(nums_reales[0]), 
+                            "fijo": nums_reales[1].zfill(2), 
+                            "c1": nums_reales[2].zfill(2), 
+                            "c2": "00" # En Pick 3 no hay C2 oficial
                         })
+                        
                     elif juego == "P4" and len(numeros) >= 4:
+                        # En Pick 4 oficial hay 4 números. Ignoramos el Fireball si viene de 5to.
+                        nums_reales = numeros[:4]
+                        
                         resultados.append({
                             "fecha": fecha_str, 
                             "turno": turno, 
-                            "cent": cent, 
-                            "fijo": numeros[1].zfill(2), 
-                            "c1": numeros[2].zfill(2), 
-                            "c2": numeros[3].zfill(2) # En Pick 4 el C2 es el cuarto número
+                            "cent": limpiar_num(nums_reales[0]), 
+                            "fijo": nums_reales[1].zfill(2), 
+                            "c1": nums_reales[2].zfill(2), 
+                            "c2": nums_reales[3].zfill(2)
                         })
                 except Exception as e:
                     continue
