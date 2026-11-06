@@ -6,12 +6,11 @@ from datetime import datetime
 
 ARCHIVO_JSON = "resultados.json"
 
-# URLS
 URL_API_FLORIDA = "https://apim-website-prod-eastus.azure-api.net/drawgamesapp/getLatestDrawGames"
 URL_WEB_DOMINICANA = "https://loteriasdominicanas.com/loteria-de-florida"
 
 def obtener_centena_api():
-    """Saca la Centena (y los números del P3) desde la API oficial"""
+    """Saca la Centena (1er número) desde la API oficial"""
     print("1. Consultando API Oficial para la Centena...")
     headers = {"Accept": "application/json", "x-partner": "web", "User-Agent": "Mozilla/5.0"}
     centenas = {}
@@ -35,7 +34,6 @@ def obtener_centena_api():
                 
                 nums = game.get("DrawNumbers", [])
                 if len(nums) >= 1:
-                    # Guardamos la centena usando fecha_turno como clave
                     centenas[f"{fecha}_{turno}"] = str(nums[0].get("NumberPick"))
                     
         print(f"   -> Se encontraron {len(centenas)} centenas en la API.")
@@ -44,23 +42,24 @@ def obtener_centena_api():
         print(f"   -> Error en API: {e}")
         return {}
 
-def obtener_resto_web():
-    """Saca el Fijo y Corridos desde Loterias Dominicanas"""
+def obtener_datos_web():
+    """Saca los números del P3 (Fijo) y P4 (Corridos) desde la web"""
     print("2. Consultando Web Dominicana para Fijo y Corridos...")
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    sorteos_web = {}
+    
+    # Diccionarios separados para P3 y P4
+    datos_p3 = {}
+    datos_p4 = {}
     
     try:
         res = requests.get(URL_WEB_DOMINICANA, headers=headers, timeout=15)
         res.raise_for_status()
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # Buscamos los bloques de juegos
         bloques = soup.find_all('div', class_='game-block')
         
         for bloque in bloques:
             try:
-                # Extraer título y fecha (esto depende del HTML real, ponemos un try genérico)
                 titulo_tag = bloque.find('span')
                 fecha_tag = bloque.find('div', class_='session-date')
                 
@@ -69,40 +68,52 @@ def obtener_resto_web():
                 titulo = titulo_tag.get_text(strip=True).upper()
                 fecha_texto = fecha_tag.get_text(strip=True)
                 
-                # Identificar turno y juego
+                # Normalizar fecha a DD-MM-YYYY
+                try:
+                    fecha = datetime.strptime(fecha_texto, "%d/%m/%Y").strftime("%d-%m-%Y")
+                except:
+                    fecha = fecha_texto.replace("/", "-")
+                    
+                # Extraer las bolitas de números (ignorando el Fireball)
+                bolitas = bloque.find_all('span', class_='score')
+                numeros = []
+                for b in bolitas:
+                    texto = b.get_text(strip=True)
+                    if texto.isdigit():
+                        numeros.append(texto)
+                
+                # Procesar PICK 3
                 if "PICK 3" in titulo:
                     turno = "N" if "NOCHE" in titulo else "T"
-                    try:
-                        fecha = datetime.strptime(fecha_texto, "%d/%m/%Y").strftime("%d-%m-%Y")
-                    except:
-                        # Si la fecha viene en otro formato (ej. 06-11-2025)
-                        fecha = fecha_texto.replace("/", "-")
-                    
-                    # Buscar números (bolitas)
-                    bolitas = bloque.find_all('span', class_='score')
-                    if len(bolitas) >= 3:
-                        fijo = str(bolitas[0].get_text(strip=True)).zfill(2)
-                        c1 = str(bolitas[1].get_text(strip=True)).zfill(2)
-                        c2 = str(bolitas[2].get_text(strip=True)).zfill(2)
+                    if len(numeros) >= 3:
+                        # Regla: Fijo = 2do + 3er número
+                        fijo = numeros[1].zfill(2) + numeros[2].zfill(2)
+                        datos_p3[f"{fecha}_{turno}"] = {"fijo": fijo}
+                
+                # Procesar PICK 4
+                elif "PICK 4" in titulo:
+                    turno = "N" if "NOCHE" in titulo else "T"
+                    if len(numeros) >= 4:
+                        # Regla: C1 = 1ro + 2do, C2 = 3ro + 4to
+                        c1 = numeros[0].zfill(2) + numeros[1].zfill(2)
+                        c2 = numeros[2].zfill(2) + numeros[3].zfill(2)
+                        datos_p4[f"{fecha}_{turno}"] = {"c1": c1, "c2": c2}
                         
-                        sorteos_web[f"{fecha}_{turno}"] = {
-                            "fijo": fijo, "c1": c1, "c2": c2
-                        }
-            except Exception:
+            except Exception as e:
                 continue
                 
-        print(f"   -> Se encontraron {len(sorteos_web)} sorteos en la web.")
-        return sorteos_web
+        print(f"   -> P3 encontrados en web: {len(datos_p3)}")
+        print(f"   -> P4 encontrados en web: {len(datos_p4)}")
+        return datos_p3, datos_p4
     except Exception as e:
         print(f"   -> Error en Web: {e}")
-        return {}
+        return {}, {}
 
 def main():
-    # 1. Obtener datos de ambas fuentes
     centenas_api = obtener_centena_api()
-    datos_web = obtener_resto_web()
+    datos_p3_web, datos_p4_web = obtener_datos_web()
     
-    # 2. Leer JSON existente
+    # Leer JSON existente
     if os.path.exists(ARCHIVO_JSON):
         with open(ARCHIVO_JSON, 'r', encoding='utf-8') as f:
             try:
@@ -115,33 +126,46 @@ def main():
     existentes = {f"{s['fecha']}_{s['turno']}" for s in data.get("sorteos", [])}
     agregados = 0
 
-    # 3. Fusionar datos
     print("3. Fusionando datos...")
-    for clave, info_web in datos_web.items():
+    
+    # Juntamos todas las claves (fechas_turnos) que tengamos en la web
+    todas_las_claves = set(datos_p3_web.keys()).union(set(datos_p4_web.keys()))
+    
+    for clave in todas_las_claves:
         if clave in existentes:
             continue # Ya existe, lo saltamos
             
-        # Separar fecha y turno de la clave
         fecha, turno = clave.split("_")
         
-        # Si tenemos la centena de la API, la usamos. Si no, ponemos "0" (o podrías usar la del P4)
-        centena = centenas_api.get(clave, "0")
+        # Buscar datos en cada fuente
+        centena = centenas_api.get(clave)
+        info_p3 = datos_p3_web.get(clave)
+        info_p4 = datos_p4_web.get(clave)
         
-        nuevo_sorteo = {
-            "fecha": fecha,
-            "turno": turno,
-            "cent": centena,
-            "fijo": info_web["fijo"],
-            "c1": info_web["c1"],
-            "c2": info_web["c2"]
-        }
-        
-        data["sorteos"].append(nuevo_sorteo)
-        existentes.add(clave)
-        agregados += 1
-        print(f"   [+] Agregado: {fecha} {turno} -> Cent: {centena} | Fijo: {info_web['fijo']} | C1: {info_web['c1']} | C2: {info_web['c2']}")
+        # Validar que tengamos lo mínimo necesario (Centena y Fijo al menos)
+        if centena is not None and info_p3 is not None:
+            
+            fijo = info_p3["fijo"]
+            c1 = info_p4["c1"] if info_p4 else "00"
+            c2 = info_p4["c2"] if info_p4 else "00"
+            
+            nuevo_sorteo = {
+                "fecha": fecha,
+                "turno": turno,
+                "cent": centena,
+                "fijo": fijo,
+                "c1": c1,
+                "c2": c2
+            }
+            
+            data["sorteos"].append(nuevo_sorteo)
+            existentes.add(clave)
+            agregados += 1
+            print(f"   [+] {fecha} {turno} -> Cent: {centena} | Fijo: {fijo} | C1: {c1} | C2: {c2}")
+        else:
+            print(f"   [-] {fecha} {turno} -> Faltan datos (API: {centena is not None}, P3: {info_p3 is not None})")
 
-    # 4. Guardar JSON
+    # Guardar JSON
     with open(ARCHIVO_JSON, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
     
