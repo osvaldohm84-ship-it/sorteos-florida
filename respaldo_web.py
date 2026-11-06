@@ -2,6 +2,7 @@ import json
 import os
 import pandas as pd
 from datetime import datetime
+import requests
 
 ARCHIVO_JSON = "resultados.json"
 
@@ -14,8 +15,17 @@ URL_P4_NOCHE = "https://www.lotteryusa.com/florida/pick-4-evening/"
 def extraer_web(url, juego, turno):
     print(f"Buscando en: {url} (Turno: {turno})")
     resultados = []
+    # MÁSCARA DE NAVEGADOR REAL PARA EVITAR BLOQUEOS
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
     try:
-        tablas = pd.read_html(url)
+        # Usamos requests con headers, y le pasamos el texto a pandas
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        
+        tablas = pd.read_html(response.text)
         for df in tablas:
             df.columns = [str(c).strip() for c in df.columns]
             if 'Date' in df.columns and ('Numbers' in df.columns or 'Winning Numbers' in df.columns):
@@ -31,7 +41,6 @@ def extraer_web(url, juego, turno):
                         
                         if len(nums) >= 3:
                             if juego == "P3":
-                                # Centena, Fijo (2 dígitos), C1 (2 dígitos), C2 (00)
                                 resultados.append({
                                     "fecha": fecha_str, 
                                     "turno": turno, 
@@ -41,7 +50,6 @@ def extraer_web(url, juego, turno):
                                     "c2": "00"
                                 })
                             elif juego == "P4" and len(nums) >= 4:
-                                # Los 4 números reales
                                 resultados.append({
                                     "fecha": fecha_str, 
                                     "turno": turno, 
@@ -52,6 +60,7 @@ def extraer_web(url, juego, turno):
                                 })
                     except:
                         continue
+        print(f"Se encontraron {len(resultados)} sorteos en {url}")
         return resultados
     except Exception as e:
         print(f"Error en {url}: {e}")
@@ -67,7 +76,6 @@ def main():
             except:
                 data = {"sorteos": []}
 
-    # Recopilamos todos los datos de las 4 URLs
     nuevos_web = []
     nuevos_web.extend(extraer_web(URL_P3_TARDE, "P3", "T"))
     nuevos_web.extend(extraer_web(URL_P3_NOCHE, "P3", "N"))
@@ -77,11 +85,13 @@ def main():
     actualizados = 0
     agregados = 0
     
+    if len(nuevos_web) == 0:
+        print("ADVERTENCIA: No se pudo extraer ningún sorteo de las webs. Puede ser un bloqueo temporal.")
+    
     for n in nuevos_web:
         existe = False
         for i, existente in enumerate(data["sorteos"]):
             if existente["fecha"] == n["fecha"] and existente["turno"] == n["turno"]:
-                # SIEMPRE SOBRESCRIBIMOS CON LOS DATOS DE LA WEB
                 data["sorteos"][i] = n
                 actualizados += 1
                 existe = True
@@ -93,6 +103,8 @@ def main():
 
     if actualizados > 0 or agregados > 0:
         print(f"Se agregaron {agregados} sorteos y se actualizaron {actualizados} con los datos de la web.")
+    else:
+        print("No se agregaron ni actualizaron sorteos.")
 
     with open(ARCHIVO_JSON, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4)
