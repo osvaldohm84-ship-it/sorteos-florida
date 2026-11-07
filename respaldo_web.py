@@ -32,8 +32,8 @@ def obtener_datos_api():
                 fecha = fecha_cruda
                 
             nums = game.get("DrawNumbers", [])
-            # Convertir a strings de 2 dígitos
-            numeros = [str(n.get("NumberPick")).zfill(2) for n in nums]
+            # Extraemos solo los valores numéricos puros (sin rellenar con ceros aún)
+            numeros_raw = [str(n.get("NumberPick")) for n in nums]
             
             clave = f"{fecha}_{turno}"
             if clave not in datos:
@@ -41,17 +41,19 @@ def obtener_datos_api():
 
             # PROCESAR PICK 3
             if name == "PICK 3":
-                if len(numeros) >= 3:
-                    # Centena = 1º, Fijo = 2º + 3º
-                    datos[clave]["cent"] = numeros[0]
-                    datos[clave]["fijo"] = numeros[1] + numeros[2]
+                if len(numeros_raw) >= 3:
+                    # Centena: El primer número, sin ceros a la izquierda (ej. "6")
+                    datos[clave]["cent"] = str(int(numeros_raw[0]))
+                    # Fijo: El segundo y tercer número, unidos y con 2 dígitos (ej. "85")
+                    datos[clave]["fijo"] = (numeros_raw[1] + numeros_raw[2]).zfill(2)
                     
             # PROCESAR PICK 4
             elif name == "PICK 4":
-                if len(numeros) >= 4:
-                    # C1 = 1º + 2º, C2 = 3º + 4º
-                    datos[clave]["c1"] = numeros[0] + numeros[1]
-                    datos[clave]["c2"] = numeros[2] + numeros[3]
+                if len(numeros_raw) >= 4:
+                    # C1: El primer y segundo número (ej. "42")
+                    datos[clave]["c1"] = (numeros_raw[0] + numeros_raw[1]).zfill(2)
+                    # C2: El tercer y cuarto número (ej. "57")
+                    datos[clave]["c2"] = (numeros_raw[2] + numeros_raw[3]).zfill(2)
                     
         print(f"   -> Se encontraron datos para {len(datos)} días/turnos.")
         return datos
